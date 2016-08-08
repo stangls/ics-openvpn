@@ -26,6 +26,7 @@ import android.security.KeyChainAliasCallback;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -88,6 +89,7 @@ public class ConfigConverter extends BaseActivity implements FileSelectCallback,
     private AsyncTask<Void, Void, Integer> mImportTask;
     private LinearLayout mLogLayout;
     private TextView mProfilenameLabel;
+    private boolean autoStart;
 
     @Override
     public void onClick(View v) {
@@ -658,6 +660,9 @@ public class ConfigConverter extends BaseActivity implements FileSelectCallback,
         if (data != null) {
             mSourceUri = data;
             doImportUri(data);
+            if (intent.hasExtra("auto") && intent.getBooleanExtra("auto",false)){
+                autoStart=true;
+            }
         }
     }
 
@@ -754,6 +759,10 @@ public class ConfigConverter extends BaseActivity implements FileSelectCallback,
                     mProfilename.setText(mResult.getName());
 
                     log(R.string.import_done);
+
+                    if (autoStart){
+                        userActionSaveProfile();
+                    }
                 }
             }
         }.execute();
