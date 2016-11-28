@@ -25,13 +25,12 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 
-import java.io.IOException;
-
 import de.blinkt.openvpn.activities.LogWindow;
-import de.blinkt.openvpn.core.ProfileManager;
 import de.blinkt.openvpn.core.VPNLaunchHelper;
 import de.blinkt.openvpn.core.VpnStatus;
 import de.blinkt.openvpn.core.VpnStatus.ConnectionStatus;
+import de.blinkt.openvpn.launch.LaunchReceiver;
+import de.blinkt.openvpn.launch.LaunchVPNException;
 
 /**
  * This Activity actually handles two stages of a launcher shortcut's life cycle.
@@ -68,27 +67,22 @@ public class LaunchVPN extends Activity {
 
     private static final int START_VPN_PROFILE = 70;
 
-
     private VpnProfile mSelectedProfile;
     private boolean mhideLog = false;
-
-    private boolean mCmfixed = false;
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        startVpnFromIntent();
+        startVpnFromIntent(getIntent());
     }
 
-    protected void startVpnFromIntent() {
+    protected void startVpnFromIntent(Intent intent) {
         // Resolve the intent
 
-        final Intent intent = getIntent();
         final String action = intent.getAction();
 
         // If the intent is a request to create a shortcut, we'll do that and exit
-
 
         if (Intent.ACTION_MAIN.equals(action)) {
             // Check if we need to clear the log
@@ -96,15 +90,11 @@ public class LaunchVPN extends Activity {
                 VpnStatus.clearLog();
 
             // we got called to be the starting point, most likely a shortcut
-            String shortcutUUID = intent.getStringExtra(EXTRA_KEY);
-            String shortcutName = intent.getStringExtra(EXTRA_NAME);
             mhideLog = intent.getBooleanExtra(EXTRA_HIDELOG, false);
 
-            VpnProfile profileToConnect = ProfileManager.get(this, shortcutUUID);
-            if (shortcutName != null && profileToConnect == null)
-                profileToConnect = ProfileManager.getInstance(this).getProfileByName(shortcutName);
+            VpnProfile profileToConnect = LaunchReceiver.connect(this, intent);
 
-            if (profileToConnect == null) {
+            if ( profileToConnect == null ) {
                 VpnStatus.logError(R.string.shortcut_profile_notfound);
                 // show Log window to display error
                 showLogWindow();
@@ -257,23 +247,15 @@ public class LaunchVPN extends Activity {
     }
 
     void launchVPN() {
-        int vpnok = mSelectedProfile.checkProfile(this);
-        if (vpnok != R.string.no_error_found) {
-            showConfigErrorDialog(vpnok);
+
+        Intent intent ;
+        try{
+            intent = LaunchReceiver.launchVPN(
+                this, mSelectedProfile
+            );
+        }catch(LaunchVPNException e){
+            showConfigErrorDialog(e.vpnok);
             return;
-        }
-
-        Intent intent = VpnService.prepare(this);
-        // Check if we want to fix /dev/tun
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean usecm9fix = prefs.getBoolean("useCM9Fix", false);
-        boolean loadTunModule = prefs.getBoolean("loadTunModule", false);
-
-        if (loadTunModule)
-            execeuteSUcmd("insmod /system/lib/modules/tun.ko");
-
-        if (usecm9fix && !mCmfixed) {
-            execeuteSUcmd("chown system /dev/tun");
         }
 
         if (intent != null) {
@@ -292,17 +274,5 @@ public class LaunchVPN extends Activity {
             onActivityResult(START_VPN_PROFILE, Activity.RESULT_OK, null);
         }
 
-    }
-
-    private void execeuteSUcmd(String command) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder("su", "-c", command);
-            Process p = pb.start();
-            int ret = p.waitFor();
-            if (ret == 0)
-                mCmfixed = true;
-        } catch (InterruptedException | IOException e) {
-            VpnStatus.logException("SU command", e);
-        }
     }
 }

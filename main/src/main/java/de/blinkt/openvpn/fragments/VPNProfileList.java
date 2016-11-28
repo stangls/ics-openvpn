@@ -33,6 +33,7 @@ import de.blinkt.openvpn.activities.FileSelect;
 import de.blinkt.openvpn.activities.VPNPreferences;
 import de.blinkt.openvpn.core.ProfileManager;
 import de.blinkt.openvpn.core.VpnStatus;
+import de.blinkt.openvpn.LaunchVPN;
 
 import java.util.Collection;
 import java.util.Comparator;
